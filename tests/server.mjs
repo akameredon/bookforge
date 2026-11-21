@@ -5,7 +5,7 @@ import { extname, resolve, sep } from 'node:path';
 const root = resolve('.');
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const server = createServer((req, res) => {
-  const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  const requestedPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);\n  const pathname = requestedPath === '/' ? '/index.html' : requestedPath;
   const file = resolve(root, '.' + pathname);
   if (file !== root && !file.startsWith(root + sep)) {
     res.writeHead(403).end('Forbidden');
