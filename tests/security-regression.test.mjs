@@ -6,10 +6,10 @@ import vm from 'node:vm';
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 test('inline application JavaScript parses', () => {
-  const start = html.lastIndexOf('<script>');
-  const end = html.lastIndexOf('</script>');
+  const start = html.indexOf('<script>\n');
+  const end = html.lastIndexOf('</script></body>');
   assert.ok(start >= 0 && end > start, 'main inline script must exist');
-  const source = html.slice(start + '<script>'.length, end);
+  const source = html.slice(start + '<script>\n'.length, end);
   assert.doesNotThrow(() => new vm.Script(source), 'main inline script must be valid JavaScript');
 });
 
