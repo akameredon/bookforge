@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import JSZip from 'jszip';
-import { DOMParser } from '@xmldom/xmldom';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1sAAAAASUVORK5CYII=',
@@ -37,20 +36,19 @@ async function downloadedBuffer(page, selector) {
   return Buffer.concat(chunks);
 }
 
-function assertXmlWellFormed(xml, label) {
-  const errors = [];
-  const parser = new DOMParser({
-    errorHandler: {
-      warning: message => errors.push(message),
-      error: message => errors.push(message),
-      fatalError: message => errors.push(message)
-    }
-  });
-  parser.parseFromString(xml, 'application/xml');
-  expect(errors, label).toEqual([]);
+async function assertXmlWellFormed(xml, label, page) {
+  const parsed = await page.evaluate(source => {
+    const doc = new DOMParser().parseFromString(source, 'application/xml');
+    return {
+      root: doc.documentElement?.nodeName || null,
+      error: doc.querySelector('parsererror')?.textContent || null
+    };
+  }, xml);
+  expect(parsed.error, label).toBeNull();
+  expect(parsed.root, label).not.toBeNull();
 }
 
-async function assertEpub(buffer) {
+async function assertEpub(buffer, page) {
   const zip = await JSZip.loadAsync(buffer);
   const required = [
     'mimetype',
@@ -113,7 +111,7 @@ test('an unreadable Markdown file produces a visible import error instead of an 
 test('EPUB download is a readable archive with required package files and well-formed XHTML/XML', async ({ page }) => {
   await prepareBook(page);
   const buffer = await downloadedBuffer(page, '#bEpub');
-  await assertEpub(buffer);
+  await assertEpub(buffer, page);
 });
 
 test('launch-pack ZIP contains the listing, cover asset and a structurally valid embedded EPUB', async ({ page }) => {
@@ -127,14 +125,14 @@ test('launch-pack ZIP contains the listing, cover asset and a structurally valid
   const listing = await pack.file('listing.html').async('string');
   expect(listing).toContain('Browser QA Book');
   expect(listing).toContain('BookForge Test Author');
-  await assertEpub(await epubFile.async('nodebuffer'));
+  await assertEpub(await epubFile.async('nodebuffer'), page);
 });
 
 test('PDF action opens the real generated print document and invokes its print handoff', async ({ page }) => {
   await page.addInitScript(() => {
     window.print = () => { window.__bookforgePrintCalled = true; };
   });
-  await page.route('https://unpkg.com/pagedjs/dist/paged.polyfill.js', route => route.fulfill({
+  await page.context().route('https://unpkg.com/pagedjs/dist/paged.polyfill.js', route => route.fulfill({
     contentType: 'application/javascript',
     body: `class Handler {} window.Paged = { Handler, registerHandlers(H) { setTimeout(() => new H().afterRendered([]), 0); } };`
   }));
