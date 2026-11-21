@@ -182,5 +182,13 @@ test('PDF export renders a real paginated PDF with manuscript content', async ({
   expect(extracted).toContain('Second Chapter');
   expect(extracted).toContain('First body');
   expect(extracted).toContain('Second body');
+
+  // The contents page must report the same printed page number as the chapter itself.
+  // This fixture's TOC is physical PDF page 3 and Chapter 2 opens on physical page 7.
+  const tocPage = execFileSync('pdftotext', ['-f', '3', '-l', '3', '-layout', pdfPath, '-'], { encoding: 'utf8' });
+  const chapterTwoPage = execFileSync('pdftotext', ['-f', '7', '-l', '7', '-layout', pdfPath, '-'], { encoding: 'utf8' });
+  expect(chapterTwoPage).toContain('CHAPTER 2');
+  expect(chapterTwoPage).toMatch(/\\b6\\b/);
+  expect(tocPage).toMatch(/Second Chapter\\s+6/);
   await popup.close();
 });
