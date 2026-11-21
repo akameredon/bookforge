@@ -18,8 +18,9 @@ button.p{background:var(--ac);border-color:var(--ac);color:#fff}
 #drop{border:2px dashed var(--bd);border-radius:8px;padding:22px;text-align:center;color:var(--mut)}#drop.on{border-color:var(--ac)}
 .ch{border:1px solid var(--bd);border-radius:8px;padding:10px;margin:8px 0}
 #cv{max-height:150px;margin-top:8px;display:none;border-radius:4px}#st{color:var(--mut);margin-top:10px;min-height:20px}
+#aiStatus{font-size:13px;color:var(--mut);margin-top:8px;min-height:18px}
 </style></head><body>
-<header><h1>BookForge Studio</h1><p>Markdown chapters + cover in, print PDF, EPUB 3 and a seller launch pack out. No signup, runs in your browser.</p></header>
+<header><h1>BookForge Studio</h1><p>Markdown chapters + cover in, print PDF, EPUB 3 and a seller launch pack out. No signup, runs in your browser. Optional AI assist with your own key.</p></header>
 <main>
 <section><h2>Book details</h2>
 <label>Title</label><input id="title"><label>Subtitle</label><input id="subtitle"><label>Author</label><input id="author">
@@ -31,6 +32,18 @@ button.p{background:var(--ac);border-color:var(--ac);color:#fff}
 <div id="drop">Drop .md files and a cover image here, or <button id="pick">choose files</button></div>
 <input id="file" type="file" multiple accept=".md,.markdown,.txt,image/png,image/jpeg" hidden>
 <img id="cv" alt="Cover preview"><div class="row" style="margin-top:10px"><button id="sample">Load sample</button><button id="clear">Clear everything</button></div></section>
+
+<section class="full"><h2>AI Assist (optional – Bring Your Own Key)</h2>
+<label>API Key (OpenRouter recommended – works with DeepSeek, Claude, Gemini, GPT)</label>
+<input id="aiKey" type="password" placeholder="sk-or-v1-... or your provider key">
+<p style="font-size:12px;color:var(--mut);margin:6px 0 10px">Your key stays in this browser only. We never see it or your book content.</p>
+<div class="row">
+  <button id="aiBlurb">Generate Sales Blurb + Tags</button>
+  <button id="aiImprove">Improve First Chapter</button>
+</div>
+<div id="aiStatus"></div>
+</section>
+
 <section class="full"><h2>Chapters <button id="add" style="float:right">Add chapter</button></h2><div id="chs"></div></section>
 <section class="full"><h2>Export and launch</h2>
 <div class="row"><button class="p" id="bPdf">Print / Save PDF</button><button class="p" id="bEpub">Download EPUB</button><button class="p" id="bPack">Download launch pack (.zip)</button><button id="bMail">Email launch blurb</button></div>
@@ -43,7 +56,7 @@ button.p{background:var(--ac);border-color:var(--ac);color:#fff}
 <script>
 const $=id=>document.getElementById(id),F=['title','subtitle','author','year','usd','ngn','trim','theme','blurb','tags'];
 let chapters=[],cover=null;
-const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&','<':'<','>':'>','"':'"'}[c]));
 const status=t=>$('st').textContent=t,meta=()=>Object.fromEntries(F.map(k=>[k,$(k).value.trim()]));
 const html=md=>DOMPurify.sanitize(marked.parse(md||'')),ext=()=>cover&&cover.type==='image/png'?'png':'jpg';
 const slug=()=>(meta().title||'book').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'book';
@@ -74,21 +87,39 @@ $('sample').onclick=()=>{$('title').value='Blood for Rare Earths';$('subtitle').
 chapters=[{title:'The Sacrificial Soil',md:'# The Sacrificial Soil\n\nHold a modern smartphone in your hand, and you are holding dozens of elements dug out of the earth.\n\n## Sacrifice zones\n\nRegions ruined by toxic extraction are known as **sacrifice zones**.'},{title:'The Invisible Arsenal',md:'# The Invisible Arsenal\n\nModern armies cannot see, target or strike without rare earth elements.'}];render();save();status('Sample loaded.')};
 function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)}
 const SZ={'6x9':['6in','9in'],A5:['148mm','210mm'],A4:['210mm','297mm']};
+
+/* ========== IMPROVED PDF PRINT ========== */
 $('bPdf').onclick=()=>{const m=meta();if(!chapters.length)return status('Add at least one chapter first.');
-const [w,h]=SZ[m.trim],serif=m.theme!=='sans',pg=(a,b)=>`<section class="pg">${a}</section>`;
+const [w,h]=SZ[m.trim],serif=m.theme!=='sans';
 const toc=chapters.map(c=>`<li>${esc(c.title)}</li>`).join('');
 const win=window.open('','_blank');if(!win)return status('Allow pop-ups, then try again.');
 win.document.write(`<!doctype html><meta charset="utf-8"><title>${esc(m.title)}</title><style>
-@page{size:${w} ${h};margin:20mm 18mm}@page cov{margin:0}
-body{margin:0;font:11pt/1.55 ${serif?'Georgia,serif':'system-ui,sans-serif'}}
-.cover{page:cov;break-after:page}.cover img{display:block;width:${w};height:${h};object-fit:cover}
-.pg,.c{break-before:page}.t{text-align:center;padding-top:30%}.t h1{font-size:28pt;margin:0}.t h2{font-weight:400;font-size:14pt}
-h1{font-size:20pt;margin:0 0 1em}h2{font-size:14pt}img{max-width:100%}blockquote{margin:1em 0;padding-left:1em;border-left:3px solid #999}pre{white-space:pre-wrap}
-</style>${cover?`<div class="cover"><img src="${cover.url}"></div>`:''}
-<div class="t"><h1>${esc(m.title)}</h1><h2>${esc(m.subtitle)}</h2><p>${esc(m.author)}</p></div>
-<section class="pg"><p>Copyright &copy; ${esc(m.year)} ${esc(m.author)}. All rights reserved.</p><h1 style="margin-top:2em">Contents</h1><ol>${toc}</ol></section>
-${chapters.map(c=>`<section class="c">${html(c.md)}</section>`).join('')}`);
-win.document.close();setTimeout(()=>win.print(),700);status('In the print dialog, choose Save as PDF and turn off headers and footers.')};
+@page{size:${w} ${h};margin:22mm 18mm 24mm 18mm}
+@page :first{margin:0}
+@page cover{margin:0}
+body{margin:0;font:11pt/1.58 ${serif?'Georgia,"Times New Roman",serif':'system-ui,-apple-system,sans-serif'};color:#111;orphans:3;widows:3;hyphens:auto}
+.cover{page:cover;break-after:page;width:${w};height:${h};overflow:hidden}
+.cover img{display:block;width:100%;height:100%;object-fit:cover}
+.front-matter,.chapter{break-before:page}
+.title-page{text-align:center;padding-top:32%}
+.title-page h1{font-size:26pt;line-height:1.2;margin:0 0 .4em;font-weight:700}
+.title-page h2{font-size:13pt;font-weight:400;margin:0 0 1.8em;color:#333}
+.title-page .author{font-size:12pt;margin-top:2.5em}
+h1.chapter-title{font-size:18pt;margin:0 0 1.1em;line-height:1.25;page-break-after:avoid}
+h2{font-size:13pt;margin:1.4em 0 .5em;page-break-after:avoid}
+p{margin:0 0 .85em;text-align:justify}
+img{max-width:100%;height:auto}
+blockquote{margin:1.1em 0;padding-left:1em;border-left:3px solid #999;color:#333}
+pre,code{font-family:ui-monospace,monospace;font-size:9.5pt}
+</style>
+${cover?`<div class="cover"><img src="${cover.url}"></div>`:''}
+<div class="front-matter title-page"><h1>${esc(m.title)}</h1><h2>${esc(m.subtitle)}</h2><p class="author">${esc(m.author)}</p></div>
+<div class="front-matter"><p>Copyright &copy; ${esc(m.year)} ${esc(m.author)}. All rights reserved.</p><h1 style="margin-top:2em;font-size:16pt">Contents</h1><ol>${toc}</ol></div>
+${chapters.map(c=>`<div class="chapter"><h1 class="chapter-title">${esc(c.title)}</h1>${html(c.md.replace(/^#\s+.+\n+/,''))}</div>`).join('')}
+`);
+win.document.close();setTimeout(()=>win.print(),700);status('In the print dialog: choose Save as PDF and turn OFF headers & footers.')};
+
+/* ========== EPUB (unchanged core) ========== */
 async function epub(){const m=meta(),z=new JSZip(),id='urn:uuid:'+crypto.randomUUID();
 z.file('mimetype','application/epub+zip',{compression:'STORE'});
 z.file('META-INF/container.xml','<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
@@ -110,5 +141,92 @@ z.file('listing.html','<!doctype html><meta charset="utf-8"><title>Listing</titl
 dl(await z.generateAsync({type:'blob'}),'launch-pack-'+slug()+'.zip');status('Launch pack ready. Save your PDF with the PDF button and add it to your uploads.')};
 $('bMail').onclick=()=>{const m=meta();location.href='mailto:?subject='+encodeURIComponent('New book: '+m.title)+'&body='+encodeURIComponent(m.blurb+'\n\n'+(m.usd?'Price: $'+m.usd:''))};
 $('gGum').onclick=()=>open('https://gumroad.com/products/new','_blank');$('gSel').onclick=()=>open('https://selar.co','_blank');$('gKdp').onclick=()=>open('https://kdp.amazon.com','_blank');
+
+/* ========== AI ASSIST (BYOK) ========== */
+const aiStatus = (msg) => { $('aiStatus').textContent = msg; };
+$('aiKey').value = localStorage.getItem('bf_ai_key') || '';
+$('aiKey').onchange = () => localStorage.setItem('bf_ai_key', $('aiKey').value.trim());
+
+async function callAI(systemPrompt, userPrompt) {
+  const key = $('aiKey').value.trim();
+  if (!key) { aiStatus('Paste your API key first.'); return null; }
+  aiStatus('Working...');
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://akameredon.github.io/bookforge/',
+        'X-Title': 'BookForge Studio'
+      },
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.6
+      })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || res.statusText);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } catch (err) {
+    aiStatus('Error: ' + (err.message || 'Request failed'));
+    return null;
+  }
+}
+
+$('aiBlurb').onclick = async () => {
+  const m = meta();
+  if (!m.title) return aiStatus('Add a title first.');
+  const prompt = `Book title: ${m.title}
+Subtitle: ${m.subtitle || 'none'}
+Author: ${m.author || 'unknown'}
+Current blurb: ${m.blurb || 'none'}
+
+Write a strong, professional sales blurb (maximum 180 words) for this non-fiction book.
+Then on a new line write exactly:
+TAGS: tag1, tag2, tag3, tag4, tag5, tag6, tag7, tag8
+
+Make the tags relevant for Amazon KDP and Selar.`;
+  const result = await callAI('You are an expert non-fiction book marketer and copywriter.', prompt);
+  if (!result) return;
+  const tagsMatch = result.match(/TAGS:\s*(.+)/i);
+  if (tagsMatch) {
+    $('tags').value = tagsMatch[1].trim();
+    $('blurb').value = result.replace(/TAGS:\s*.+/i, '').trim();
+  } else {
+    $('blurb').value = result;
+  }
+  save();
+  aiStatus('Sales blurb and tags updated.');
+};
+
+$('aiImprove').onclick = async () => {
+  if (!chapters.length) return aiStatus('Add a chapter first.');
+  const ch = chapters[0];
+  const result = await callAI(
+    'You are a skilled developmental editor for non-fiction. Improve clarity, flow and impact while preserving the author’s voice and meaning. Return only the improved Markdown.',
+    `Improve this chapter:\n\n# ${ch.title}\n\n${ch.md}`
+  );
+  if (!result) return;
+  const lines = result.split('\n');
+  let newTitle = ch.title;
+  let body = result;
+  if (lines[0].startsWith('# ')) {
+    newTitle = lines[0].replace(/^#\s+/, '').trim();
+    body = lines.slice(1).join('\n').trim();
+  }
+  chapters[0] = { title: newTitle, md: body };
+  render();
+  save();
+  aiStatus('First chapter improved.');
+};
+
 load();render();
 </script></body></html>
