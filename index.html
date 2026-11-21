@@ -469,7 +469,9 @@ ${chapterHtml}
       // when named pages, blank pages and chapter counter resets are combined.
       const renderedPages = Array.from(pages || []);
       const pageNumberFor = (page) => {
-        const margin = page.querySelector('.pagedjs_margin-bottom-center .pagedjs_margin-content');
+        const pageElement = page && page.element ? page.element : page;
+        if (!pageElement || typeof pageElement.querySelector !== 'function') return '';
+        const margin = pageElement.querySelector('.pagedjs_margin-bottom-center .pagedjs_margin-content');
         if (!margin) return '';
         const content = window.getComputedStyle(margin, '::after').content;
         if (!content || content === 'none' || content === 'normal') return '';
@@ -478,9 +480,11 @@ ${chapterHtml}
 
       document.querySelectorAll('.toc-page[data-page-target]').forEach(label => {
         const targetId = label.dataset.pageTarget;
-        const targetPage = renderedPages.find(page =>
-          Array.from(page.querySelectorAll('[id]')).some(node => node.id === targetId)
-        );
+        const targetPage = renderedPages.find(page => {
+          const pageElement = page && page.element ? page.element : page;
+          return pageElement && typeof pageElement.querySelectorAll === 'function' &&
+            Array.from(pageElement.querySelectorAll('[id]')).some(node => node.id === targetId);
+        });
         label.textContent = targetPage ? pageNumberFor(targetPage) : '';
       });
 
