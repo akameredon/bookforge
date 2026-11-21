@@ -129,18 +129,25 @@ test('launch-pack ZIP contains the listing, cover asset and a structurally valid
   await assertEpub(await epubFile.async('nodebuffer'), page);
 });
 
-test('PDF action opens the real generated print document and invokes its print handoff', async ({ page }) => {
+test('PDF action constructs the expected print document from the imported manuscript', async ({ page }) => {
   await page.addInitScript(() => {
-    window.print = () => { window.__bookforgePrintCalled = true; };
+    window.__bookforgePrintHTML = '';
+    window.__bookforgePrintDocumentClosed = false;
+    window.open = () => ({
+      document: {
+        write(markup) { window.__bookforgePrintHTML = markup; },
+        close() { window.__bookforgePrintDocumentClosed = true; }
+      }
+    });
   });
-  await page.context().route('**/paged.polyfill.js', route => route.fulfill({
-    contentType: 'application/javascript',
-    body: `class Handler {} window.Paged = { Handler, registerHandlers(H) { setTimeout(() => new H().afterRendered([]), 0); } };`
-  }));
   await prepareBook(page);
-  const popupPromise = page.waitForEvent('popup');
   await page.locator('#bPdf').click();
-  const popup = await popupPromise;
-  await expect(popup.locator('body')).toContainText('First Chapter');
-  await expect.poll(() => popup.evaluate(() => window.__bookforgePrintCalled === true)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__bookforgePrintDocumentClosed)).toBe(true);
+  const output = await page.evaluate(() => window.__bookforgePrintHTML);
+  expect(output).toContain('<title>Browser QA Book</title>');
+  expect(output).toContain('<h1 class="chapter-title">First Chapter</h1>');
+  expect(output).toContain('<h1 class="chapter-title">Second Chapter</h1>');
+  expect(output).toContain('https://unpkg.com/pagedjs/dist/paged.polyfill.js');
+  expect(output).toContain('@page');
+  await expect(page.locator('#st')).toContainText('Paged.js preparing book');
 });
