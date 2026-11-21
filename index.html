@@ -61,8 +61,27 @@ const status=t=>$('st').textContent=t,meta=()=>Object.fromEntries(F.map(k=>[k,$(
 const html=md=>DOMPurify.sanitize(marked.parse(md||'')),ext=()=>cover&&cover.type==='image/png'?'png':'jpg';
 const slug=()=>(meta().title||'book').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'book';
 function save(){try{const m={};F.forEach(k=>m[k]=$(k).value);localStorage.setItem('bf',JSON.stringify({m,chapters}));return true}catch(e){status('Save failed: browser storage may be full or unavailable. Export your work before leaving this page.');return false}}
-function load(){try{const d=JSON.parse(localStorage.getItem('bf'));if(d){F.forEach(k=>d.m[k]!=null&&($(k).value=d.m[k]));chapters=d.chapters||[]}}catch(e){}
-try{cover=JSON.parse(localStorage.getItem('bfc'))}catch(e){}}
+function load(){
+  const restoreErrors=[];
+  try{
+    const raw=localStorage.getItem('bf');
+    if(raw){
+      const d=JSON.parse(raw);
+      if(!d||typeof d!=='object'||!d.m||typeof d.m!=='object'||!Array.isArray(d.chapters))throw new Error('Invalid saved manuscript structure');
+      F.forEach(k=>d.m[k]!=null&&($(k).value=d.m[k]));
+      chapters=d.chapters;
+    }
+  }catch(e){restoreErrors.push('Saved manuscript data could not be restored. Existing browser data has not been deleted.')}
+  try{
+    const raw=localStorage.getItem('bfc');
+    if(raw){
+      const savedCover=JSON.parse(raw);
+      if(!savedCover||typeof savedCover.url!=='string'||typeof savedCover.type!=='string')throw new Error('Invalid saved cover structure');
+      cover=savedCover;
+    }
+  }catch(e){restoreErrors.push('Saved cover data could not be restored. Existing browser data has not been deleted.')}
+  if(restoreErrors.length)status(restoreErrors.join(' '));
+}
 function render(){const box=$('chs');box.innerHTML='';
 chapters.forEach((c,i)=>{const d=document.createElement('div');d.className='ch';
 d.innerHTML=`<div class="row"><input value="${esc(c.title)}" data-i="${i}" data-f="title"><button data-a="up" data-i="${i}">↑</button><button data-a="dn" data-i="${i}">↓</button><button data-a="rm" data-i="${i}">✕</button></div><textarea data-i="${i}" data-f="md">${esc(c.md)}</textarea>`;box.appendChild(d)});
