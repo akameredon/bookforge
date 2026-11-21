@@ -152,7 +152,7 @@ $('bPdf').onclick=()=>{
 
       tocHtml += `
         <li class="toc-front">
-          <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span></a>
+          <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span><span class="toc-page" data-page-target="ch-${i}"></span></a>
         </li>`;
     } else {
       // Real numbered chapter
@@ -177,7 +177,7 @@ $('bPdf').onclick=()=>{
       }
       tocHtml += `
         <li class="toc-chapter">
-          <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span></a>
+          <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span><span class="toc-page" data-page-target="ch-${i}"></span></a>
           ${sub}
         </li>`;
     }
@@ -382,8 +382,7 @@ section.frontmatter-section {
   position: relative;
   top: -0.15em;
 }
-.toc a::after {
-  content: target-counter(attr(href url), page);
+.toc-page {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   flex-shrink: 0;
@@ -391,8 +390,7 @@ section.frontmatter-section {
   min-width: 1.4em;
   text-align: right;
 }
-.toc-front > a::after {
-  content: target-counter(attr(href url), page, lower-roman);
+.toc-front .toc-page {
   font-weight: 400;
   font-style: italic;
 }
@@ -466,6 +464,26 @@ ${chapterHtml}
 <script>
   class PrintHandler extends Paged.Handler {
     afterRendered(pages) {
+      // Read the page number from the rendered page footer itself. Paged.js
+      // target-counter() can disagree with the page counter printed in footers
+      // when named pages, blank pages and chapter counter resets are combined.
+      const renderedPages = Array.from(pages || []);
+      const pageNumberFor = (page) => {
+        const margin = page.querySelector('.pagedjs_margin-bottom-center .pagedjs_margin-content');
+        if (!margin) return '';
+        const content = window.getComputedStyle(margin, '::after').content;
+        if (!content || content === 'none' || content === 'normal') return '';
+        return content.replace(/^["']|["']$/g, '');
+      };
+
+      document.querySelectorAll('.toc-page[data-page-target]').forEach(label => {
+        const targetId = label.dataset.pageTarget;
+        const targetPage = renderedPages.find(page =>
+          Array.from(page.querySelectorAll('[id]')).some(node => node.id === targetId)
+        );
+        label.textContent = targetPage ? pageNumberFor(targetPage) : '';
+      });
+
       setTimeout(() => window.print(), 500);
     }
   }
