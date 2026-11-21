@@ -1,28 +1,23 @@
 # BookForge Studio
 
-Drop Markdown chapters and a cover image into the browser. Get a print-ready PDF, a valid EPUB 3 for Amazon KDP, and a launch pack with copy-paste listing fields for KDP, Selar and Gumroad.
+Turn Markdown chapters + a cover image into a print-ready PDF, a valid EPUB 3 for Amazon KDP, and a launch pack for KDP, Selar and Gumroad.
 
-No signup. No backend. No database. Everything runs in your browser, so hosting costs nothing.
+No signup. No backend. Everything runs in your browser.
 
-## Use it
+**[Open BookForge Studio →](https://akameredon.github.io/bookforge/)**
 
-1. Open `index.html` locally, or deploy it (below).
-2. Drag in `.md` files (named `01_intro.md`, `02_chapter.md`, ...) and a PNG/JPG cover, or click **Load sample**.
-3. Fill in the book details, then use **Print / Save PDF**, **Download EPUB** or **Download launch pack**.
+## What you get
+- Print-ready PDF
+- Valid EPUB 3 (compatible with Amazon KDP)
+- Launch pack with copy-paste fields for KDP, Selar and Gumroad
 
-## Deploy free on GitHub Pages
+## How to use
+1. Open the link above
+2. Drop your `.md` chapter files and a cover image (or click **Load sample**)
+3. Fill in title, author, blurb and price
+4. Download the EPUB, save the PDF, or download the launch pack
 
-1. Create a new public repo on github.com.
-2. Upload `index.html` and `README.md` (Add file, then Upload files).
-3. Go to Settings, Pages, choose the `main` branch and the root folder, and save.
-4. Your app goes live at `https://<your-username>.github.io/<repo-name>/`.
+## Why it exists
+Most tools that turn writing into publishable books are complicated, expensive, or require accounts. BookForge is deliberately simple and private.
 
-Cloudflare Pages works the same way: connect the repo and leave the build command empty.
-
-## Notes
-
-- PDF export uses the browser print dialog. Choose "Save as PDF" and turn off headers and footers.
-- Gumroad has no one-click publish here. The app opens the new-product page and gives you copy buttons for every field.
-- Amazon KDP and Selar have no public upload API, so the launch pack is a guided handoff.
-- Drafts autosave in your browser (localStorage). Clearing site data removes them.
-- Libraries are loaded from public CDNs: marked, JSZip and DOMPurify.
+Built by Akadonye Chibuike Macdonald.
