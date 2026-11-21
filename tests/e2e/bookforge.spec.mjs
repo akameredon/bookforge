@@ -63,7 +63,7 @@ async function assertEpub(buffer, page) {
   for (const name of required) expect(zip.file(name), `EPUB missing ${name}`).not.toBeNull();
   expect(await zip.file('mimetype').async('string')).toBe('application/epub+zip');
   for (const name of ['META-INF/container.xml', 'OEBPS/content.opf', 'OEBPS/nav.xhtml', 'OEBPS/ch0.xhtml', 'OEBPS/ch1.xhtml']) {
-    assertXmlWellFormed(await zip.file(name).async('string'), name);
+    await assertXmlWellFormed(await zip.file(name).async('string'), name, page);
   }
   const opf = await zip.file('OEBPS/content.opf').async('string');
   expect(opf).toContain('Browser QA Book');
@@ -104,8 +104,9 @@ test('an unreadable Markdown file produces a visible import error instead of an 
     mimeType: 'text/markdown',
     buffer: Buffer.from('# Cannot Read')
   });
+  await expect.poll(() => pageErrors.length).toBe(1);
+  expect(pageErrors[0]).toContain('Synthetic file read failure');
   await expect(page.locator('#st')).toContainText(/Import failed/i, { timeout: 2500 });
-  expect(pageErrors).toEqual([]);
 });
 
 test('EPUB download is a readable archive with required package files and well-formed XHTML/XML', async ({ page }) => {
@@ -132,7 +133,7 @@ test('PDF action opens the real generated print document and invokes its print h
   await page.addInitScript(() => {
     window.print = () => { window.__bookforgePrintCalled = true; };
   });
-  await page.context().route('https://unpkg.com/pagedjs/dist/paged.polyfill.js', route => route.fulfill({
+  await page.context().route('**/paged.polyfill.js', route => route.fulfill({
     contentType: 'application/javascript',
     body: `class Handler {} window.Paged = { Handler, registerHandlers(H) { setTimeout(() => new H().afterRendered([]), 0); } };`
   }));
