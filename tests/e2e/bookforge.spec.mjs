@@ -131,9 +131,8 @@ test('an unreadable Markdown file produces a visible import error instead of an 
     mimeType: 'text/markdown',
     buffer: Buffer.from('# Cannot Read')
   });
-  await expect.poll(() => pageErrors.length).toBe(1);
-  expect(pageErrors[0]).toContain('Synthetic file read failure');
-  await expect(page.locator('#st')).toContainText(/Import failed/i, { timeout: 2500 });
+  await expect(page.locator('#st')).toContainText(/Import failed: Synthetic file read failure/i, { timeout: 2500 });
+  expect(pageErrors).toEqual([]);
 });
 
 test('EPUB download is a readable archive with required package files and well-formed XHTML/XML', async ({ page }) => {
