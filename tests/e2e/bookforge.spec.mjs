@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import JSZip from 'jszip';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1sAAAAASUVORK5CYII=',
@@ -139,6 +141,8 @@ test('EPUB download is a readable archive with required package files and well-f
   await prepareBook(page);
   const buffer = await downloadedBuffer(page, '#bEpub');
   await assertEpub(buffer, page);
+  mkdirSync('test-results', { recursive: true });
+  writeFileSync('test-results/bookforge-sample.epub', buffer);
 });
 
 test('launch-pack ZIP contains the listing, cover asset and a structurally valid embedded EPUB', async ({ page }) => {
@@ -155,25 +159,28 @@ test('launch-pack ZIP contains the listing, cover asset and a structurally valid
   await assertEpub(await epubFile.async('nodebuffer'), page);
 });
 
-test('PDF action constructs the expected print document from the imported manuscript', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__bookforgePrintHTML = '';
-    window.__bookforgePrintDocumentClosed = false;
-    window.open = () => ({
-      document: {
-        write(markup) { window.__bookforgePrintHTML = markup; },
-        close() { window.__bookforgePrintDocumentClosed = true; }
-      }
-    });
+test('PDF export renders a real paginated PDF with manuscript content', async ({ page }) => {
+  await page.context().addInitScript(() => {
+    window.print = () => { window.__bookforgePrintInvoked = true; };
   });
   await prepareBook(page);
+  const popupPromise = page.waitForEvent('popup');
   await page.locator('#bPdf').click();
-  await expect.poll(() => page.evaluate(() => window.__bookforgePrintDocumentClosed)).toBe(true);
-  const output = await page.evaluate(() => window.__bookforgePrintHTML);
-  expect(output).toContain('<title>Browser QA Book</title>');
-  expect(output).toContain('<h1 class="chapter-title">First Chapter</h1>');
-  expect(output).toContain('<h1 class="chapter-title">Second Chapter</h1>');
-  expect(output).toContain('https://unpkg.com/pagedjs/dist/paged.polyfill.js');
-  expect(output).toContain('@page');
-  await expect(page.locator('#st')).toContainText('Paged.js preparing book');
+  const popup = await popupPromise;
+  await expect.poll(() => popup.evaluate(() => window.__bookforgePrintInvoked === true), { timeout: 30000 }).toBe(true);
+  await popup.emulateMedia({ media: 'print' });
+  mkdirSync('test-results', { recursive: true });
+  const pdfPath = 'test-results/bookforge-sample.pdf';
+  const pdf = await popup.pdf({ path: pdfPath, printBackground: true, preferCSSPageSize: true });
+  expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+  const info = execFileSync('pdfinfo', [pdfPath], { encoding: 'utf8' });
+  const pages = Number(info.match(/^Pages:\s+(\d+)/m)?.[1]);
+  expect(pages, 'PDF must contain multiple rendered pages').toBeGreaterThanOrEqual(4);
+  const extracted = execFileSync('pdftotext', ['-layout', pdfPath, '-'], { encoding: 'utf8' });
+  expect(extracted).toContain('Browser QA Book');
+  expect(extracted).toContain('First Chapter');
+  expect(extracted).toContain('Second Chapter');
+  expect(extracted).toContain('First body');
+  expect(extracted).toContain('Second body');
+  await popup.close();
 });
