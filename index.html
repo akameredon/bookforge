@@ -88,27 +88,33 @@ chapters=[{title:'The Sacrificial Soil',md:'# The Sacrificial Soil\n\nHold a mod
 function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)}
 const SZ={'6x9':['6in','9in'],A5:['148mm','210mm'],A4:['210mm','297mm']};
 
-/* ========== PDF v6 – Brutal clean ========== */
+/* ========== PDF v7 – Best-practice frontmatter handling ========== */
 $('bPdf').onclick=()=>{
   const m=meta();
   if(!chapters.length) return status('Add at least one chapter first.');
   const [w,h]=SZ[m.trim];
   const serif = m.theme !== 'sans';
   const bodyOf = md => (md||'').replace(/^\s*#\s+.+\n+/, '');
-
-  // Strip leading numbers like "1. ", "2.3 ", "4) " from heading text
   const cleanHeading = (txt) => String(txt||'').replace(/^\s*\d+[\.\)\:]\s*/, '').replace(/^\s*\d+\.\d+[\.\)\:]?\s*/, '').trim();
+
+  // Best-practice frontmatter detection
+  const isFrontmatter = (title) => {
+    const t = (title||'').toLowerCase().trim();
+    return /^(author.?s? note|preface|foreword|introduction|acknowledgment|acknowledgement|prologue|dedication|epigraph)/i.test(t);
+  };
 
   let chapterHtml = '';
   let tocHtml = '';
+  let mainChapterNum = 0;
+  let firstMainChapterIndex = -1;
 
   chapters.forEach((c,i)=>{
+    const front = isFrontmatter(c.title);
     const body = bodyOf(c.md);
     const parsed = html(body);
     const temp = document.createElement('div');
     temp.innerHTML = parsed;
 
-    // Clean H2 text in the body itself so the double-number never appears
     const h2s = [...temp.querySelectorAll('h2')];
     h2s.forEach((h2,sIdx)=>{
       h2.id = `ch-${i}-sec-${sIdx+1}`;
@@ -116,28 +122,45 @@ $('bPdf').onclick=()=>{
     });
     const finalBody = temp.innerHTML;
 
-    chapterHtml += `
-    <section class="chapter ${i===0?'first-chapter':''}" id="ch-${i}">
-      <div class="chapter-opener">
-        <span class="chapter-label">Chapter ${i+1}</span>
-        <h1 class="chapter-title">${esc(c.title)}</h1>
-      </div>
-      ${finalBody}
-    </section>`;
+    if (front) {
+      // Frontmatter section – no chapter number
+      chapterHtml += `
+      <section class="frontmatter-section" id="ch-${i}">
+        <h1 class="frontmatter-title">${esc(c.title)}</h1>
+        ${finalBody}
+      </section>`;
 
-    // Build clean TOC entry
-    let sub = '';
-    if(h2s.length){
-      sub = '<ol>' + h2s.map((h2,sIdx)=>`
-        <li class="toc-sub">
-          <a href="#ch-${i}-sec-${sIdx+1}"><span class="toc-title">${esc(cleanHeading(h2.textContent))}</span></a>
-        </li>`).join('') + '</ol>';
+      tocHtml += `
+        <li class="toc-front">
+          <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span></a>
+        </li>`;
+    } else {
+      // Real numbered chapter
+      mainChapterNum++;
+      if (firstMainChapterIndex === -1) firstMainChapterIndex = i;
+
+      chapterHtml += `
+      <section class="chapter ${mainChapterNum===1?'first-chapter':''}" id="ch-${i}">
+        <div class="chapter-opener">
+          <span class="chapter-label">Chapter ${mainChapterNum}</span>
+          <h1 class="chapter-title">${esc(c.title)}</h1>
+        </div>
+        ${finalBody}
+      </section>`;
+
+      let sub = '';
+      if (h2s.length) {
+        sub = '<ol>' + h2s.map((h2,sIdx)=>`
+          <li class="toc-sub">
+            <a href="#ch-${i}-sec-${sIdx+1}"><span class="toc-title">${esc(cleanHeading(h2.textContent))}</span></a>
+          </li>`).join('') + '</ol>';
+      }
+      tocHtml += `
+        <li class="toc-chapter">
+          <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span></a>
+          ${sub}
+        </li>`;
     }
-    tocHtml += `
-      <li class="toc-chapter">
-        <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span></a>
-        ${sub}
-      </li>`;
   });
 
   const win = window.open('','_blank');
@@ -222,10 +245,10 @@ body {
 .cover { page: cover; break-after: page; width: 100%; height: 100%; overflow: hidden; }
 .cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-/* Frontmatter */
+/* Frontmatter pages */
 section.frontmatter { page: frontmatter; break-after: right; }
 
-/* Stronger Title Page */
+/* Title page */
 .title-page {
   text-align: center;
   padding-top: 2.1in;
@@ -259,7 +282,19 @@ section.frontmatter { page: frontmatter; break-after: right; }
   margin: 1.8em auto 0;
 }
 
-/* ===== Hardened TOC ===== */
+/* Frontmatter content sections (Author’s Note etc.) */
+section.frontmatter-section {
+  page: frontmatter;
+  break-before: page;
+}
+.frontmatter-title {
+  font-size: 16pt;
+  font-weight: 700;
+  margin: 0 0 1.1em;
+  text-align: center;
+}
+
+/* ===== TOC ===== */
 .toc-heading {
   font-size: 17pt;
   font-weight: 700;
@@ -269,6 +304,10 @@ section.frontmatter { page: frontmatter; break-after: right; }
 }
 .toc, .toc ol { list-style: none; margin: 0; padding: 0; }
 .toc { counter-reset: toc-chap; }
+.toc-front {
+  margin-top: 0.5em;
+  break-inside: avoid;
+}
 .toc-chapter {
   counter-increment: toc-chap;
   counter-reset: toc-sec;
@@ -300,15 +339,19 @@ section.frontmatter { page: frontmatter; break-after: right; }
   min-width: 2.1em;
   flex-shrink: 0;
 }
+.toc-front > a::before {
+  content: "";
+  min-width: 0;
+}
 .toc-title {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
 }
 .toc-chapter > a .toc-title { font-weight: 700; font-size: 10.5pt; }
-.toc-sub > a .toc-title { font-weight: 400; font-size: 9.5pt; }
+.toc-sub > a .toc-title,
+.toc-front > a .toc-title { font-weight: 400; font-size: 10pt; }
 
-/* Bulletproof leader */
 .toc a .toc-title::after {
   content: "";
   display: inline-block;
@@ -328,13 +371,16 @@ section.frontmatter { page: frontmatter; break-after: right; }
   min-width: 1.4em;
   text-align: right;
 }
+.toc-front > a::after {
+  content: target-counter(attr(href url), page, lower-roman);
+  font-weight: 400;
+  font-style: italic;
+}
 
-/* Chapter openers */
+/* Chapters */
 section.chapter { page: chapter; break-before: right; }
 section.chapter.first-chapter { counter-reset: page 1; }
-.chapter-opener {
-  margin-bottom: 1.4em;
-}
+.chapter-opener { margin-bottom: 1.4em; }
 .chapter-label {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 8pt;
@@ -409,7 +455,7 @@ ${chapterHtml}
 </html>`);
 
   win.document.close();
-  status('Paged.js preparing clean production PDF…');
+  status('Paged.js preparing book with proper frontmatter…');
 };
 
 /* ========== EPUB ========== */
