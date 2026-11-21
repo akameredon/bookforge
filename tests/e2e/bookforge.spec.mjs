@@ -88,6 +88,33 @@ test('real import orders chapters, previews cover and restores manuscript after 
   await expect(page.locator('#cv')).toBeVisible();
 });
 
+test('corrupt saved manuscript data is reported instead of silently discarded', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('bf', '{not valid JSON');
+    localStorage.setItem('bfc', '{not valid JSON');
+  });
+  await page.goto('/');
+  await expect(page.locator('#st')).toContainText(/could not be restored|saved data is damaged/i, { timeout: 2500 });
+});
+
+test('cover storage failure remains visible after the import status is updated', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'bfc') throw new DOMException('Synthetic quota exceeded', 'QuotaExceededError');
+      return original.call(this, key, value);
+    };
+  });
+  await page.goto('/');
+  await page.locator('#file').setInputFiles({
+    name: 'cover.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1sAAAAASUVORK5CYII=', 'base64')
+  });
+  await expect(page.locator('#cv')).toBeVisible();
+  await expect(page.locator('#st')).toContainText(/cover.*could not be saved|cover.*session only/i, { timeout: 2500 });
+});
+
 test('an unreadable Markdown file produces a visible import error instead of an unhandled rejection', async ({ page }) => {
   await page.addInitScript(() => {
     const original = File.prototype.text;
