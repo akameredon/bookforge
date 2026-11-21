@@ -160,10 +160,10 @@ $('bPdf').onclick=()=>{
       if (firstMainChapterIndex === -1) firstMainChapterIndex = i;
 
       chapterHtml += `
-      <section class="chapter ${mainChapterNum===1?'first-chapter':''}" id="ch-${i}">
+      <section class="chapter ${mainChapterNum===1?'first-chapter':''}">
         <div class="chapter-opener">
           <span class="chapter-label">Chapter ${mainChapterNum}</span>
-          <h1 class="chapter-title">${esc(c.title)}</h1>
+          <h1 class="chapter-title" id="ch-${i}">${esc(c.title)}</h1>
         </div>
         ${finalBody}
       </section>`;
