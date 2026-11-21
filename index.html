@@ -90,13 +90,13 @@ $('chs').addEventListener('input',e=>{const t=e.target;if(t.dataset.f){chapters[
 $('chs').addEventListener('click',e=>{const a=e.target.dataset.a,i=+e.target.dataset.i;if(!a)return;
 if(a==='rm')chapters.splice(i,1);else{const j=a==='up'?i-1:i+1;if(j<0||j>=chapters.length)return;[chapters[i],chapters[j]]=[chapters[j],chapters[i]]}render();save()});
 document.querySelectorAll('input,select,textarea').forEach(el=>{if(F.includes(el.id))el.addEventListener('input',save)});
-function setCover(f){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{cover={url:fr.result,type:f.type};try{localStorage.setItem('bfc',JSON.stringify(cover))}catch(e){status('Cover loaded for this session, but could not be saved. Export your work before leaving this page.')}resolve()};fr.onerror=()=>reject(new Error('Could not read the cover image.'));fr.readAsDataURL(f)})}
+function setCover(f){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{cover={url:fr.result,type:f.type};try{localStorage.setItem('bfc',JSON.stringify(cover));resolve(true)}catch(e){resolve(false)}};fr.onerror=()=>reject(new Error('Could not read the cover image.'));fr.readAsDataURL(f)})}
 async function ingest(files){const fs=[...files];
 const md=fs.filter(f=>/\.(md|markdown|txt)$/i.test(f.name)).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
 for(const f of md){const t=await f.text(),h=t.match(/^#\s+(.+)$/m);
 chapters.push({title:h?h[1].trim():f.name.replace(/\.\w+$/,'').replace(/^\d+[_-]?/,'').replace(/[_-]/g,' '),md:t})}
-const img=fs.find(f=>/^image\/(png|jpe?g)$/.test(f.type));if(img)await setCover(img);
-render();save();status(`Imported ${md.length} chapter(s)${img?' and a cover':''}.`)}
+const img=fs.find(f=>/^image\/(png|jpe?g)$/.test(f.type));const coverSaved=img?await setCover(img):true;
+render();save();status(img&&!coverSaved?'Cover loaded for this session, but could not be saved. Export your work before leaving this page.':`Imported ${md.length} chapter(s)${img?' and a cover':''}.`)}
 const dz=$('drop');['dragenter','dragover'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.add('on')}));
 ['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('on')}));
 dz.addEventListener('drop',e=>ingest(e.dataTransfer.files));$('pick').onclick=()=>$('file').click();$('file').onchange=e=>{ingest(e.target.files);e.target.value=''};
