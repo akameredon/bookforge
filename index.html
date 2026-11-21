@@ -88,7 +88,7 @@ chapters=[{title:'The Sacrificial Soil',md:'# The Sacrificial Soil\n\nHold a mod
 function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)}
 const SZ={'6x9':['6in','9in'],A5:['148mm','210mm'],A4:['210mm','297mm']};
 
-/* ========== PDF v4 – Full Paged.js Production Print ========== */
+/* ========== PDF v5 – Production TOC with target-counter + Flexbox leaders ========== */
 $('bPdf').onclick=()=>{
   const m=meta();
   if(!chapters.length) return status('Add at least one chapter first.');
@@ -96,14 +96,42 @@ $('bPdf').onclick=()=>{
   const serif = m.theme !== 'sans';
   const bodyOf = md => (md||'').replace(/^\s*#\s+.+\n+/, '');
 
-  const tocItems = chapters.map((c,i)=>`<li><a href="#ch-${i}"><span class="toc-num">${i+1}.</span> ${esc(c.title)}</a></li>`).join('');
+  // Build chapter HTML + extract H2s for nested TOC
+  let chapterHtml = '';
+  let tocHtml = '';
+  chapters.forEach((c,i)=>{
+    const body = bodyOf(c.md);
+    const parsed = html(body);
+    // Extract H2s from the parsed body for nested TOC
+    const temp = document.createElement('div');
+    temp.innerHTML = parsed;
+    const h2s = [...temp.querySelectorAll('h2')];
+    h2s.forEach((h2,sIdx)=>{
+      if(!h2.id) h2.id = `ch-${i}-sec-${sIdx+1}`;
+    });
+    const finalBody = temp.innerHTML;
 
-  const chapterHtml = chapters.map((c,i)=>`
+    chapterHtml += `
     <section class="chapter ${i===0?'first-chapter':''}" id="ch-${i}">
       <span class="chapter-label">Chapter ${i+1}</span>
       <h1 class="chapter-title">${esc(c.title)}</h1>
-      ${html(bodyOf(c.md))}
-    </section>`).join('');
+      ${finalBody}
+    </section>`;
+
+    // TOC entry
+    let sub = '';
+    if(h2s.length){
+      sub = '<ol>' + h2s.map((h2,sIdx)=>`
+        <li class="toc-sub">
+          <a href="#ch-${i}-sec-${sIdx+1}"><span class="toc-title">${esc(h2.textContent)}</span></a>
+        </li>`).join('') + '</ol>';
+    }
+    tocHtml += `
+      <li class="toc-chapter">
+        <a href="#ch-${i}"><span class="toc-title">${esc(c.title)}</span></a>
+        ${sub}
+      </li>`;
+  });
 
   const win = window.open('','_blank');
   if(!win) return status('Allow pop-ups, then try again.');
@@ -126,7 +154,6 @@ $('bPdf').onclick=()=>{
     color: #333;
   }
 }
-
 @page :left {
   margin-left: 0.65in;
   margin-right: 0.95in;
@@ -139,7 +166,6 @@ $('bPdf').onclick=()=>{
     color: #666;
   }
 }
-
 @page :right {
   margin-left: 0.95in;
   margin-right: 0.65in;
@@ -151,13 +177,11 @@ $('bPdf').onclick=()=>{
     color: #666;
   }
 }
-
 @page :blank {
   @top-left { content: none; }
   @top-right { content: none; }
   @bottom-center { content: none; }
 }
-
 @page frontmatter {
   @top-left { content: none; }
   @top-right { content: none; }
@@ -166,13 +190,11 @@ $('bPdf').onclick=()=>{
     font-size: 9pt;
   }
 }
-
 @page chapter:first {
   margin-top: 1.6in;
   @top-left { content: none; }
   @top-right { content: none; }
 }
-
 @page cover {
   margin: 0;
   @top-left { content: none; }
@@ -181,7 +203,6 @@ $('bPdf').onclick=()=>{
 }
 
 * { box-sizing: border-box; }
-
 body {
   font-family: ${serif ? 'Georgia, "Times New Roman", serif' : 'system-ui, -apple-system, sans-serif'};
   font-size: 10.5pt;
@@ -189,87 +210,82 @@ body {
   color: #111;
   margin: 0;
 }
-
 .book-title-source { string-set: book-title content(text); }
 
 /* Cover */
-.cover {
-  page: cover;
-  break-after: page;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-.cover img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.cover { page: cover; break-after: page; width: 100%; height: 100%; overflow: hidden; }
+.cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 /* Frontmatter */
-section.frontmatter {
-  page: frontmatter;
-  break-after: right;
-}
+section.frontmatter { page: frontmatter; break-after: right; }
 
 /* Title page */
-.title-page {
-  text-align: center;
-  padding-top: 2.4in;
-}
-.title-page h1 {
-  font-size: 24pt;
-  line-height: 1.18;
-  margin: 0 0 0.35em;
-  font-weight: 700;
-}
-.title-page h2 {
-  font-size: 12.5pt;
-  font-weight: 400;
-  margin: 0 0 1.8em;
-  color: #333;
-  line-height: 1.35;
-}
-.title-page .author {
-  font-size: 12pt;
-  margin-top: 2.6em;
-  letter-spacing: 0.02em;
-}
+.title-page { text-align: center; padding-top: 2.4in; }
+.title-page h1 { font-size: 24pt; line-height: 1.18; margin: 0 0 0.35em; font-weight: 700; }
+.title-page h2 { font-size: 12.5pt; font-weight: 400; margin: 0 0 1.8em; color: #333; line-height: 1.35; }
+.title-page .author { font-size: 12pt; margin-top: 2.6em; letter-spacing: 0.02em; }
 
-/* Contents */
-.contents h1 {
-  font-size: 16pt;
+/* ===== Production TOC ===== */
+.toc-heading {
+  font-size: 18pt;
+  font-weight: 700;
   margin: 0 0 1.1em;
+  border-bottom: 1pt solid #222;
+  padding-bottom: 0.3em;
 }
-.toc-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.toc, .toc ol { list-style: none; margin: 0; padding: 0; }
+.toc { counter-reset: toc-chap; }
+.toc-chapter {
+  counter-increment: toc-chap;
+  counter-reset: toc-sec;
+  margin-top: 0.7em;
+  break-inside: avoid;
 }
-.toc-list li {
-  margin-bottom: 0.55em;
-  font-size: 10.5pt;
+.toc-sub {
+  counter-increment: toc-sec;
+  padding-left: 1.4em;
+  margin-top: 0.28em;
 }
-.toc-list a {
+.toc a {
+  display: flex;
+  align-items: baseline;
   text-decoration: none;
   color: #111;
 }
-.toc-num {
+.toc-chapter > a::before {
+  content: counter(toc-chap) ". ";
+  font-weight: bold;
+  min-width: 1.6em;
+  flex-shrink: 0;
+}
+.toc-sub > a::before {
+  content: counter(toc-chap) "." counter(toc-sec) " ";
+  color: #555;
+  font-size: 9.5pt;
+  min-width: 2.2em;
+  flex-shrink: 0;
+}
+.toc-chapter > a .toc-title { font-weight: bold; font-size: 10.5pt; }
+.toc-sub > a .toc-title { font-weight: normal; font-size: 9.5pt; }
+/* Flexbox dotted leader that survives title wrapping */
+.toc a .toc-title::after {
+  content: "";
   display: inline-block;
-  width: 1.6em;
-  color: #666;
+  width: 100%;
+  border-bottom: 1pt dotted #888;
+  margin: 0 0.35em;
+}
+.toc a::after {
+  content: target-counter(attr(href url), page);
+  font-variant-numeric: tabular-nums;
+  font-weight: bold;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Chapters */
-section.chapter {
-  page: chapter;
-  break-before: right;
-}
-section.chapter.first-chapter {
-  counter-reset: page 1;
-}
-
+section.chapter { page: chapter; break-before: right; }
+section.chapter.first-chapter { counter-reset: page 1; }
 .chapter-label {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 8.5pt;
@@ -280,7 +296,6 @@ section.chapter.first-chapter {
   display: block;
   margin-bottom: 0.35em;
 }
-
 h1.chapter-title {
   string-set: chapter-title content(text);
   font-size: 18pt;
@@ -289,7 +304,6 @@ h1.chapter-title {
   margin: 0 0 1.1em 0;
   break-after: avoid;
 }
-
 h2 {
   font-size: 12.5pt;
   margin-top: 1.4em;
@@ -297,38 +311,14 @@ h2 {
   break-after: avoid;
   font-weight: 600;
 }
-
-p {
-  margin: 0;
-  text-align: justify;
-  hyphens: auto;
-  orphans: 3;
-  widows: 3;
-}
-p + p {
-  text-indent: 1.35em;
-}
-
-blockquote {
-  margin: 1em 0;
-  padding-left: 1em;
-  border-left: 3px solid #999;
-  color: #333;
-}
-
-pre, code {
-  font-family: ui-monospace, monospace;
-  font-size: 9pt;
-}
-
-ul, ol {
-  margin: 0.6em 0 0.9em 1.3em;
-}
+p { margin: 0; text-align: justify; hyphens: auto; orphans: 3; widows: 3; }
+p + p { text-indent: 1.35em; }
+blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid #999; color: #333; }
+pre, code { font-family: ui-monospace, monospace; font-size: 9pt; }
+ul, ol { margin: 0.6em 0 0.9em 1.3em; }
 li { margin: 0.25em 0; }
-
 img { max-width: 100%; height: auto; }
 
-/* Screen preview chrome */
 @media screen {
   body { background: #2b2d30; padding: 1.5rem 0; }
   .pagedjs_page {
@@ -349,19 +339,18 @@ ${cover ? `<div class="cover"><img src="${cover.url}" alt="Cover"></div>` : ''}
   <p class="author">${esc(m.author)}</p>
 </section>
 
-<section class="frontmatter contents">
-  <p style="font-size:9.5pt;color:#555;margin-bottom:1.8em;text-indent:0">Copyright &copy; ${esc(m.year)} ${esc(m.author)}. All rights reserved.</p>
-  <h1>Contents</h1>
-  <ul class="toc-list">${tocItems}</ul>
+<section class="frontmatter">
+  <p style="font-size:9.5pt;color:#555;margin-bottom:1.6em;text-indent:0">Copyright &copy; ${esc(m.year)} ${esc(m.author)}. All rights reserved.</p>
+  <h1 class="toc-heading">Contents</h1>
+  <ol class="toc">${tocHtml}</ol>
 </section>
 
 ${chapterHtml}
 
 <script>
-  // After Paged.js finishes, auto-trigger print
   class PrintHandler extends Paged.Handler {
     afterRendered(pages) {
-      setTimeout(() => window.print(), 400);
+      setTimeout(() => window.print(), 500);
     }
   }
   Paged.registerHandlers(PrintHandler);
@@ -370,7 +359,7 @@ ${chapterHtml}
 </html>`);
 
   win.document.close();
-  status('Paged.js is preparing your book… Print dialog will open automatically. Choose Save as PDF and turn OFF headers & footers.');
+  status('Paged.js is preparing your book with production TOC… Print dialog will open automatically.');
 };
 
 /* ========== EPUB ========== */
