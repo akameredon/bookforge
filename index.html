@@ -88,7 +88,7 @@ chapters=[{title:'The Sacrificial Soil',md:'# The Sacrificial Soil\n\nHold a mod
 function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)}
 const SZ={'6x9':['6in','9in'],A5:['148mm','210mm'],A4:['210mm','297mm']};
 
-/* ========== PDF v5 – Production TOC with target-counter + Flexbox leaders ========== */
+/* ========== PDF v6 – Brutal clean ========== */
 $('bPdf').onclick=()=>{
   const m=meta();
   if(!chapters.length) return status('Add at least one chapter first.');
@@ -96,34 +96,41 @@ $('bPdf').onclick=()=>{
   const serif = m.theme !== 'sans';
   const bodyOf = md => (md||'').replace(/^\s*#\s+.+\n+/, '');
 
-  // Build chapter HTML + extract H2s for nested TOC
+  // Strip leading numbers like "1. ", "2.3 ", "4) " from heading text
+  const cleanHeading = (txt) => String(txt||'').replace(/^\s*\d+[\.\)\:]\s*/, '').replace(/^\s*\d+\.\d+[\.\)\:]?\s*/, '').trim();
+
   let chapterHtml = '';
   let tocHtml = '';
+
   chapters.forEach((c,i)=>{
     const body = bodyOf(c.md);
     const parsed = html(body);
-    // Extract H2s from the parsed body for nested TOC
     const temp = document.createElement('div');
     temp.innerHTML = parsed;
+
+    // Clean H2 text in the body itself so the double-number never appears
     const h2s = [...temp.querySelectorAll('h2')];
     h2s.forEach((h2,sIdx)=>{
-      if(!h2.id) h2.id = `ch-${i}-sec-${sIdx+1}`;
+      h2.id = `ch-${i}-sec-${sIdx+1}`;
+      h2.textContent = cleanHeading(h2.textContent);
     });
     const finalBody = temp.innerHTML;
 
     chapterHtml += `
     <section class="chapter ${i===0?'first-chapter':''}" id="ch-${i}">
-      <span class="chapter-label">Chapter ${i+1}</span>
-      <h1 class="chapter-title">${esc(c.title)}</h1>
+      <div class="chapter-opener">
+        <span class="chapter-label">Chapter ${i+1}</span>
+        <h1 class="chapter-title">${esc(c.title)}</h1>
+      </div>
       ${finalBody}
     </section>`;
 
-    // TOC entry
+    // Build clean TOC entry
     let sub = '';
     if(h2s.length){
       sub = '<ol>' + h2s.map((h2,sIdx)=>`
         <li class="toc-sub">
-          <a href="#ch-${i}-sec-${sIdx+1}"><span class="toc-title">${esc(h2.textContent)}</span></a>
+          <a href="#ch-${i}-sec-${sIdx+1}"><span class="toc-title">${esc(cleanHeading(h2.textContent))}</span></a>
         </li>`).join('') + '</ol>';
     }
     tocHtml += `
@@ -143,7 +150,6 @@ $('bPdf').onclick=()=>{
 <title>${esc(m.title)}</title>
 <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"><\/script>
 <style>
-/* ===== Paged.js Production Book Styles ===== */
 @page {
   size: ${w} ${h};
   margin: 0.85in 0.75in 0.9in 0.75in;
@@ -191,7 +197,7 @@ $('bPdf').onclick=()=>{
   }
 }
 @page chapter:first {
-  margin-top: 1.6in;
+  margin-top: 1.5in;
   @top-left { content: none; }
   @top-right { content: none; }
 }
@@ -219,104 +225,147 @@ body {
 /* Frontmatter */
 section.frontmatter { page: frontmatter; break-after: right; }
 
-/* Title page */
-.title-page { text-align: center; padding-top: 2.4in; }
-.title-page h1 { font-size: 24pt; line-height: 1.18; margin: 0 0 0.35em; font-weight: 700; }
-.title-page h2 { font-size: 12.5pt; font-weight: 400; margin: 0 0 1.8em; color: #333; line-height: 1.35; }
-.title-page .author { font-size: 12pt; margin-top: 2.6em; letter-spacing: 0.02em; }
-
-/* ===== Production TOC ===== */
-.toc-heading {
-  font-size: 18pt;
+/* Stronger Title Page */
+.title-page {
+  text-align: center;
+  padding-top: 2.1in;
+}
+.title-page h1 {
+  font-size: 26pt;
+  line-height: 1.15;
+  margin: 0 0 0.4em;
   font-weight: 700;
-  margin: 0 0 1.1em;
+  letter-spacing: -0.02em;
+}
+.title-page h2 {
+  font-size: 12pt;
+  font-weight: 400;
+  margin: 0 0 2.2em;
+  color: #333;
+  line-height: 1.4;
+  max-width: 22em;
+  margin-left: auto;
+  margin-right: auto;
+}
+.title-page .author {
+  font-size: 12pt;
+  margin-top: 2.8em;
+  letter-spacing: 0.03em;
+}
+.title-page .rule {
+  width: 3.5em;
+  height: 1px;
+  background: #222;
+  margin: 1.8em auto 0;
+}
+
+/* ===== Hardened TOC ===== */
+.toc-heading {
+  font-size: 17pt;
+  font-weight: 700;
+  margin: 0 0 1em;
   border-bottom: 1pt solid #222;
-  padding-bottom: 0.3em;
+  padding-bottom: 0.25em;
 }
 .toc, .toc ol { list-style: none; margin: 0; padding: 0; }
 .toc { counter-reset: toc-chap; }
 .toc-chapter {
   counter-increment: toc-chap;
   counter-reset: toc-sec;
-  margin-top: 0.7em;
+  margin-top: 0.65em;
   break-inside: avoid;
 }
 .toc-sub {
   counter-increment: toc-sec;
-  padding-left: 1.4em;
-  margin-top: 0.28em;
+  padding-left: 1.35em;
+  margin-top: 0.22em;
 }
 .toc a {
   display: flex;
   align-items: baseline;
   text-decoration: none;
   color: #111;
+  width: 100%;
 }
 .toc-chapter > a::before {
   content: counter(toc-chap) ". ";
-  font-weight: bold;
-  min-width: 1.6em;
+  font-weight: 700;
+  min-width: 1.55em;
   flex-shrink: 0;
 }
 .toc-sub > a::before {
   content: counter(toc-chap) "." counter(toc-sec) " ";
   color: #555;
   font-size: 9.5pt;
-  min-width: 2.2em;
+  min-width: 2.1em;
   flex-shrink: 0;
 }
-.toc-chapter > a .toc-title { font-weight: bold; font-size: 10.5pt; }
-.toc-sub > a .toc-title { font-weight: normal; font-size: 9.5pt; }
-/* Flexbox dotted leader that survives title wrapping */
+.toc-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.toc-chapter > a .toc-title { font-weight: 700; font-size: 10.5pt; }
+.toc-sub > a .toc-title { font-weight: 400; font-size: 9.5pt; }
+
+/* Bulletproof leader */
 .toc a .toc-title::after {
   content: "";
   display: inline-block;
   width: 100%;
-  border-bottom: 1pt dotted #888;
-  margin: 0 0.35em;
+  border-bottom: 1px dotted #999;
+  margin-left: 0.3em;
+  vertical-align: baseline;
+  position: relative;
+  top: -0.15em;
 }
 .toc a::after {
   content: target-counter(attr(href url), page);
   font-variant-numeric: tabular-nums;
-  font-weight: bold;
+  font-weight: 700;
   flex-shrink: 0;
-  margin-left: auto;
+  margin-left: 0.4em;
+  min-width: 1.4em;
+  text-align: right;
 }
 
-/* Chapters */
+/* Chapter openers */
 section.chapter { page: chapter; break-before: right; }
 section.chapter.first-chapter { counter-reset: page 1; }
+.chapter-opener {
+  margin-bottom: 1.4em;
+}
 .chapter-label {
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 8.5pt;
+  font-size: 8pt;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #555;
   display: block;
-  margin-bottom: 0.35em;
+  margin-bottom: 0.3em;
 }
 h1.chapter-title {
   string-set: chapter-title content(text);
-  font-size: 18pt;
-  line-height: 1.2;
+  font-size: 17.5pt;
+  line-height: 1.18;
   font-weight: 700;
-  margin: 0 0 1.1em 0;
+  margin: 0;
   break-after: avoid;
 }
 h2 {
-  font-size: 12.5pt;
-  margin-top: 1.4em;
-  margin-bottom: 0.45em;
+  font-size: 12pt;
+  margin-top: 1.35em;
+  margin-bottom: 0.4em;
   break-after: avoid;
   font-weight: 600;
 }
 p { margin: 0; text-align: justify; hyphens: auto; orphans: 3; widows: 3; }
-p + p { text-indent: 1.35em; }
+p + p { text-indent: 1.3em; }
 blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid #999; color: #333; }
 pre, code { font-family: ui-monospace, monospace; font-size: 9pt; }
-ul, ol { margin: 0.6em 0 0.9em 1.3em; }
-li { margin: 0.25em 0; }
+ul, ol { margin: 0.55em 0 0.85em 1.25em; }
+li { margin: 0.22em 0; }
 img { max-width: 100%; height: auto; }
 
 @media screen {
@@ -336,11 +385,12 @@ ${cover ? `<div class="cover"><img src="${cover.url}" alt="Cover"></div>` : ''}
 <section class="frontmatter title-page">
   <h1 class="book-title-source">${esc(m.title)}</h1>
   <h2>${esc(m.subtitle)}</h2>
+  <div class="rule"></div>
   <p class="author">${esc(m.author)}</p>
 </section>
 
 <section class="frontmatter">
-  <p style="font-size:9.5pt;color:#555;margin-bottom:1.6em;text-indent:0">Copyright &copy; ${esc(m.year)} ${esc(m.author)}. All rights reserved.</p>
+  <p style="font-size:9.5pt;color:#555;margin-bottom:1.5em;text-indent:0">Copyright &copy; ${esc(m.year)} ${esc(m.author)}. All rights reserved.</p>
   <h1 class="toc-heading">Contents</h1>
   <ol class="toc">${tocHtml}</ol>
 </section>
@@ -359,7 +409,7 @@ ${chapterHtml}
 </html>`);
 
   win.document.close();
-  status('Paged.js is preparing your book with production TOC… Print dialog will open automatically.');
+  status('Paged.js preparing clean production PDF…');
 };
 
 /* ========== EPUB ========== */
@@ -381,7 +431,7 @@ $('bPack').onclick=async()=>{if(!ready())return;const m=meta(),z=new JSZip();z.f
 if(cover)z.file('assets/cover.'+ext(),cover.url.split(',')[1],{base64:true});
 const rows=[['Title',m.title+(m.subtitle?': '+m.subtitle:'')],['Author',m.author],['Price (USD)',m.usd],['Price (NGN)',m.ngn],['Description',m.blurb],['Tags',m.tags]];
 z.file('listing.html','<!doctype html><meta charset="utf-8"><title>Listing</title><style>body{font:15px system-ui;max-width:720px;margin:2em auto;padding:0 1em}pre{white-space:pre-wrap;background:#eee;padding:10px;border-radius:6px}</style><h1>Launch checklist</h1><p>Open <a href="https://kdp.amazon.com">KDP</a>, <a href="https://selar.co">Selar</a> and <a href="https://gumroad.com/products/new">Gumroad</a>, then paste each field. Upload the PDF you saved from BookForge to Selar and Gumroad, and the EPUB to KDP.</p>'+rows.map(([k,v],i)=>`<h3>${k}</h3><pre id="f${i}">${esc(v)}</pre><button onclick="navigator.clipboard.writeText(document.getElementById('f${i}').textContent)">Copy</button>`).join(''));
-dl(await z.generateAsync({type:'blob'}),'launch-pack-'+slug()+'.zip');status('Launch pack ready. Save your PDF with the PDF button and add it to your uploads.')};
+dl(await z.generateAsync({type:'blob'}),'launch-pack-'+slug()+'.zip');status('Launch pack ready.')};
 $('bMail').onclick=()=>{const m=meta();location.href='mailto:?subject='+encodeURIComponent('New book: '+m.title)+'&body='+encodeURIComponent(m.blurb+'\n\n'+(m.usd?'Price: $'+m.usd:''))};
 $('gGum').onclick=()=>open('https://gumroad.com/products/new','_blank');$('gSel').onclick=()=>open('https://selar.co','_blank');$('gKdp').onclick=()=>open('https://kdp.amazon.com','_blank');
 
