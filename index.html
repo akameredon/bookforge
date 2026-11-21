@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BookForge Studio</title>
+<style>
+:root{--bg:#f7f6f3;--fg:#1c1b19;--card:#fff;--mut:#6b675f;--ac:#b4451f;--bd:#ddd9d0}
+@media(prefers-color-scheme:dark){:root{--bg:#17161a;--fg:#ecebe6;--card:#222126;--mut:#9a968c;--ac:#e8794f;--bd:#37353d}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{padding:18px 24px;border-bottom:1px solid var(--bd)}h1{margin:0;font-size:22px}header p{margin:2px 0 0;color:var(--mut)}
+main{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 24px;max-width:1200px;margin:auto}
+@media(max-width:800px){main{grid-template-columns:1fr}}
+section{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px}.full{grid-column:1/-1}
+h2{margin:0 0 10px;font-size:16px}label{display:block;font-size:12px;color:var(--mut);margin:8px 0 2px}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
+textarea{min-height:110px;font:13px/1.4 ui-monospace,monospace}
+button{padding:8px 12px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer;font:inherit}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:1}.row>button{flex:0 0 auto}
+#drop{border:2px dashed var(--bd);border-radius:8px;padding:22px;text-align:center;color:var(--mut)}#drop.on{border-color:var(--ac)}
+.ch{border:1px solid var(--bd);border-radius:8px;padding:10px;margin:8px 0}
+#cv{max-height:150px;margin-top:8px;display:none;border-radius:4px}#st{color:var(--mut);margin-top:10px;min-height:20px}
+</style></head><body>
+<header><h1>BookForge Studio</h1><p>Markdown chapters + cover in, print PDF, EPUB 3 and a seller launch pack out. No signup, runs in your browser.</p></header>
+<main>
+<section><h2>Book details</h2>
+<label>Title</label><input id="title"><label>Subtitle</label><input id="subtitle"><label>Author</label><input id="author">
+<div class="row"><div><label>Copyright year</label><input id="year" value="2026"></div><div><label>Price (USD)</label><input id="usd"></div><div><label>Price (NGN)</label><input id="ngn"></div></div>
+<div class="row"><div><label>Trim size</label><select id="trim"><option value="6x9">6 x 9 in (KDP)</option><option value="A5">A5</option><option value="A4">A4</option></select></div>
+<div><label>Typeface</label><select id="theme"><option value="serif">Serif</option><option value="sans">Sans</option></select></div></div>
+<label>Sales blurb</label><textarea id="blurb"></textarea><label>Tags (comma separated)</label><input id="tags"></section>
+<section><h2>Import</h2>
+<div id="drop">Drop .md files and a cover image here, or <button id="pick">choose files</button></div>
+<input id="file" type="file" multiple accept=".md,.markdown,.txt,image/png,image/jpeg" hidden>
+<img id="cv" alt="Cover preview"><div class="row" style="margin-top:10px"><button id="sample">Load sample</button><button id="clear">Clear everything</button></div></section>
+<section class="full"><h2>Chapters <button id="add" style="float:right">Add chapter</button></h2><div id="chs"></div></section>
+<section class="full"><h2>Export and launch</h2>
+<div class="row"><button class="p" id="bPdf">Print / Save PDF</button><button class="p" id="bEpub">Download EPUB</button><button class="p" id="bPack">Download launch pack (.zip)</button><button id="bMail">Email launch blurb</button></div>
+<div class="row" style="margin-top:8px"><button id="gGum">Open Gumroad</button><button id="gSel">Open Selar</button><button id="gKdp">Open Amazon KDP</button></div>
+<div id="st"></div></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),F=['title','subtitle','author','year','usd','ngn','trim','theme','blurb','tags'];
+let chapters=[],cover=null;
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const status=t=>$('st').textContent=t,meta=()=>Object.fromEntries(F.map(k=>[k,$(k).value.trim()]));
+const html=md=>DOMPurify.sanitize(marked.parse(md||'')),ext=()=>cover&&cover.type==='image/png'?'png':'jpg';
+const slug=()=>(meta().title||'book').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'book';
+function save(){try{const m={};F.forEach(k=>m[k]=$(k).value);localStorage.setItem('bf',JSON.stringify({m,chapters}))}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem('bf'));if(d){F.forEach(k=>d.m[k]!=null&&($(k).value=d.m[k]));chapters=d.chapters||[]}}catch(e){}
+try{cover=JSON.parse(localStorage.getItem('bfc'))}catch(e){}}
+function render(){const box=$('chs');box.innerHTML='';
+chapters.forEach((c,i)=>{const d=document.createElement('div');d.className='ch';
+d.innerHTML=`<div class="row"><input value="${esc(c.title)}" data-i="${i}" data-f="title"><button data-a="up" data-i="${i}">↑</button><button data-a="dn" data-i="${i}">↓</button><button data-a="rm" data-i="${i}">✕</button></div><textarea data-i="${i}" data-f="md">${esc(c.md)}</textarea>`;box.appendChild(d)});
+if(cover){$('cv').src=cover.url;$('cv').style.display='block'}else $('cv').style.display='none'}
+$('chs').addEventListener('input',e=>{const t=e.target;if(t.dataset.f){chapters[t.dataset.i][t.dataset.f]=t.value;save()}});
+$('chs').addEventListener('click',e=>{const a=e.target.dataset.a,i=+e.target.dataset.i;if(!a)return;
+if(a==='rm')chapters.splice(i,1);else{const j=a==='up'?i-1:i+1;if(j<0||j>=chapters.length)return;[chapters[i],chapters[j]]=[chapters[j],chapters[i]]}render();save()});
+document.querySelectorAll('input,select,textarea').forEach(el=>{if(F.includes(el.id))el.addEventListener('input',save)});
+function setCover(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>{cover={url:fr.result,type:f.type};try{localStorage.setItem('bfc',JSON.stringify(cover))}catch(e){}r()};fr.readAsDataURL(f)})}
+async function ingest(files){const fs=[...files];
+const md=fs.filter(f=>/\.(md|markdown|txt)$/i.test(f.name)).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+for(const f of md){const t=await f.text(),h=t.match(/^#\s+(.+)$/m);
+chapters.push({title:h?h[1].trim():f.name.replace(/\.\w+$/,'').replace(/^\d+[_-]?/,'').replace(/[_-]/g,' '),md:t})}
+const img=fs.find(f=>/^image\/(png|jpe?g)$/.test(f.type));if(img)await setCover(img);
+render();save();status(`Imported ${md.length} chapter(s)${img?' and a cover':''}.`)}
+const dz=$('drop');['dragenter','dragover'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.add('on')}));
+['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('on')}));
+dz.addEventListener('drop',e=>ingest(e.dataTransfer.files));$('pick').onclick=()=>$('file').click();$('file').onchange=e=>{ingest(e.target.files);e.target.value=''};
+$('add').onclick=()=>{chapters.push({title:'New chapter',md:'# New chapter\n\nWrite here.'});render();save()};
+$('clear').onclick=()=>{if(!confirm('Remove all chapters, cover and details?'))return;chapters=[];cover=null;F.forEach(k=>$(k).value=k==='year'?'2026':k==='trim'?'6x9':k==='theme'?'serif':'');try{localStorage.removeItem('bf');localStorage.removeItem('bfc')}catch(e){}render()};
+$('sample').onclick=()=>{$('title').value='Blood for Rare Earths';$('subtitle').value='Peacekeepers, Proxy Wars, and the Scramble for Critical Minerals';$('author').value='Akadonye Chibuike Macdonald';
+chapters=[{title:'The Sacrificial Soil',md:'# The Sacrificial Soil\n\nHold a modern smartphone in your hand, and you are holding dozens of elements dug out of the earth.\n\n## Sacrifice zones\n\nRegions ruined by toxic extraction are known as **sacrifice zones**.'},{title:'The Invisible Arsenal',md:'# The Invisible Arsenal\n\nModern armies cannot see, target or strike without rare earth elements.'}];render();save();status('Sample loaded.')};
+function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)}
+const SZ={'6x9':['6in','9in'],A5:['148mm','210mm'],A4:['210mm','297mm']};
+$('bPdf').onclick=()=>{const m=meta();if(!chapters.length)return status('Add at least one chapter first.');
+const [w,h]=SZ[m.trim],serif=m.theme!=='sans',pg=(a,b)=>`<section class="pg">${a}</section>`;
+const toc=chapters.map(c=>`<li>${esc(c.title)}</li>`).join('');
+const win=window.open('','_blank');if(!win)return status('Allow pop-ups, then try again.');
+win.document.write(`<!doctype html><meta charset="utf-8"><title>${esc(m.title)}</title><style>
+@page{size:${w} ${h};margin:20mm 18mm}@page cov{margin:0}
+body{margin:0;font:11pt/1.55 ${serif?'Georgia,serif':'system-ui,sans-serif'}}
+.cover{page:cov;break-after:page}.cover img{display:block;width:${w};height:${h};object-fit:cover}
+.pg,.c{break-before:page}.t{text-align:center;padding-top:30%}.t h1{font-size:28pt;margin:0}.t h2{font-weight:400;font-size:14pt}
+h1{font-size:20pt;margin:0 0 1em}h2{font-size:14pt}img{max-width:100%}blockquote{margin:1em 0;padding-left:1em;border-left:3px solid #999}pre{white-space:pre-wrap}
+</style>${cover?`<div class="cover"><img src="${cover.url}"></div>`:''}
+<div class="t"><h1>${esc(m.title)}</h1><h2>${esc(m.subtitle)}</h2><p>${esc(m.author)}</p></div>
+<section class="pg"><p>Copyright &copy; ${esc(m.year)} ${esc(m.author)}. All rights reserved.</p><h1 style="margin-top:2em">Contents</h1><ol>${toc}</ol></section>
+${chapters.map(c=>`<section class="c">${html(c.md)}</section>`).join('')}`);
+win.document.close();setTimeout(()=>win.print(),700);status('In the print dialog, choose Save as PDF and turn off headers and footers.')};
+async function epub(){const m=meta(),z=new JSZip(),id='urn:uuid:'+crypto.randomUUID();
+z.file('mimetype','application/epub+zip',{compression:'STORE'});
+z.file('META-INF/container.xml','<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+const ser=h=>new XMLSerializer().serializeToString(new DOMParser().parseFromString('<body>'+h+'</body>','text/html').body);
+const X=(t,b)=>`<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en"><head><meta charset="utf-8"/><title>${esc(t)}</title><link rel="stylesheet" href="style.css"/></head>${b}</html>`;
+z.file('OEBPS/style.css','body{font-family:serif;line-height:1.5}h1{margin:1em 0}blockquote{margin:1em;font-style:italic}');
+chapters.forEach((c,i)=>z.file(`OEBPS/ch${i}.xhtml`,X(c.title,ser(html(c.md)))));
+z.file('OEBPS/nav.xhtml',X('Contents',ser(`<nav epub:type="toc" id="toc"><h1>Contents</h1><ol>${chapters.map((c,i)=>`<li><a href="ch${i}.xhtml">${esc(c.title)}</a></li>`).join('')}</ol></nav>`)));
+const items=chapters.map((c,i)=>`<item id="c${i}" href="ch${i}.xhtml" media-type="application/xhtml+xml"/>`).join(''),spine=chapters.map((c,i)=>`<itemref idref="c${i}"/>`).join('');
+if(cover)z.file('OEBPS/cover.'+ext(),cover.url.split(',')[1],{base64:true});
+z.file('OEBPS/content.opf',`<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">${id}</dc:identifier><dc:title>${esc(m.title)}</dc:title><dc:creator>${esc(m.author)}</dc:creator><dc:language>en</dc:language>${cover?'<meta name="cover" content="cov"/>':''}<meta property="dcterms:modified">${new Date().toISOString().slice(0,19)}Z</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="css" href="style.css" media-type="text/css"/>${cover?`<item id="cov" href="cover.${ext()}" media-type="${cover.type}" properties="cover-image"/>`:''}${items}</manifest><spine>${spine}</spine></package>`);
+return z.generateAsync({type:'blob',mimeType:'application/epub+zip',compression:'DEFLATE'})}
+const ready=()=>{if(!chapters.length){status('Add at least one chapter first.');return false}return true};
+$('bEpub').onclick=async()=>{if(!ready())return;dl(await epub(),slug()+'.epub');status('EPUB ready.')};
+$('bPack').onclick=async()=>{if(!ready())return;const m=meta(),z=new JSZip();z.file('kdp/'+slug()+'.epub',await epub());
+if(cover)z.file('assets/cover.'+ext(),cover.url.split(',')[1],{base64:true});
+const rows=[['Title',m.title+(m.subtitle?': '+m.subtitle:'')],['Author',m.author],['Price (USD)',m.usd],['Price (NGN)',m.ngn],['Description',m.blurb],['Tags',m.tags]];
+z.file('listing.html','<!doctype html><meta charset="utf-8"><title>Listing</title><style>body{font:15px system-ui;max-width:720px;margin:2em auto;padding:0 1em}pre{white-space:pre-wrap;background:#eee;padding:10px;border-radius:6px}</style><h1>Launch checklist</h1><p>Open <a href="https://kdp.amazon.com">KDP</a>, <a href="https://selar.co">Selar</a> and <a href="https://gumroad.com/products/new">Gumroad</a>, then paste each field. Upload the PDF you saved from BookForge to Selar and Gumroad, and the EPUB to KDP.</p>'+rows.map(([k,v],i)=>`<h3>${k}</h3><pre id="f${i}">${esc(v)}</pre><button onclick="navigator.clipboard.writeText(document.getElementById('f${i}').textContent)">Copy</button>`).join(''));
+dl(await z.generateAsync({type:'blob'}),'launch-pack-'+slug()+'.zip');status('Launch pack ready. Save your PDF with the PDF button and add it to your uploads.')};
+$('bMail').onclick=()=>{const m=meta();location.href='mailto:?subject='+encodeURIComponent('New book: '+m.title)+'&body='+encodeURIComponent(m.blurb+'\n\n'+(m.usd?'Price: $'+m.usd:''))};
+$('gGum').onclick=()=>open('https://gumroad.com/products/new','_blank');$('gSel').onclick=()=>open('https://selar.co','_blank');$('gKdp').onclick=()=>open('https://kdp.amazon.com','_blank');
+load();render();
+</script></body></html>
