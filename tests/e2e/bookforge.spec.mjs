@@ -159,6 +159,22 @@ test('launch-pack ZIP contains the listing, cover asset and a structurally valid
   await assertEpub(await epubFile.async('nodebuffer'), page);
 });
 
+test('mobile viewport supports manuscript import, persistence and EPUB export', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await prepareBook(page);
+  const layout = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+    mainColumns: getComputedStyle(document.querySelector('main')).gridTemplateColumns
+  }));
+  expect(layout.document, 'mobile layout should not overflow horizontally').toBeLessThanOrEqual(layout.viewport);
+  await page.reload();
+  await expect(page.locator('#title')).toHaveValue('Browser QA Book');
+  await expect(page.locator('#chs .ch')).toHaveCount(2);
+  const epub = await downloadedBuffer(page, '#bEpub');
+  await assertEpub(epub, page);
+});
+
 test('PDF export renders a real paginated PDF with manuscript content', async ({ page }) => {
   await page.context().addInitScript(() => {
     window.print = () => { window.__bookforgePrintInvoked = true; };
