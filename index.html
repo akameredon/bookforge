@@ -34,9 +34,9 @@ button.p{background:var(--ac);border-color:var(--ac);color:#fff}
 <img id="cv" alt="Cover preview"><div class="row" style="margin-top:10px"><button id="sample">Load sample</button><button id="clear">Clear everything</button></div></section>
 
 <section class="full"><h2>AI Assist (optional – Bring Your Own Key)</h2>
-<label>API Key (OpenRouter recommended – works with DeepSeek, Claude, Gemini, GPT)</label>
+<label>OpenRouter API key (BookForge currently uses the DeepSeek model)</label>
 <input id="aiKey" type="password" placeholder="sk-or-v1-... or your provider key">
-<p style="font-size:12px;color:var(--mut);margin:6px 0 10px">Your key stays in this browser only. We never see it or your book content.</p>
+<p style="font-size:12px;color:var(--mut);margin:6px 0 10px">Your key is sent directly to OpenRouter for AI requests and kept in this tab's session storage, not persistent local storage. Avoid using a shared device.</p>
 <div class="row">
   <button id="aiBlurb">Generate Sales Blurb + Tags</button>
   <button id="aiImprove">Improve First Chapter</button>
@@ -56,11 +56,11 @@ button.p{background:var(--ac);border-color:var(--ac);color:#fff}
 <script>
 const $=id=>document.getElementById(id),F=['title','subtitle','author','year','usd','ngn','trim','theme','blurb','tags'];
 let chapters=[],cover=null;
-const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&','<':'<','>':'>','"':'"'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const status=t=>$('st').textContent=t,meta=()=>Object.fromEntries(F.map(k=>[k,$(k).value.trim()]));
 const html=md=>DOMPurify.sanitize(marked.parse(md||'')),ext=()=>cover&&cover.type==='image/png'?'png':'jpg';
 const slug=()=>(meta().title||'book').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'book';
-function save(){try{const m={};F.forEach(k=>m[k]=$(k).value);localStorage.setItem('bf',JSON.stringify({m,chapters}))}catch(e){}}
+function save(){try{const m={};F.forEach(k=>m[k]=$(k).value);localStorage.setItem('bf',JSON.stringify({m,chapters}));return true}catch(e){status('Save failed: browser storage may be full or unavailable. Export your work before leaving this page.');return false}}
 function load(){try{const d=JSON.parse(localStorage.getItem('bf'));if(d){F.forEach(k=>d.m[k]!=null&&($(k).value=d.m[k]));chapters=d.chapters||[]}}catch(e){}
 try{cover=JSON.parse(localStorage.getItem('bfc'))}catch(e){}}
 function render(){const box=$('chs');box.innerHTML='';
@@ -71,7 +71,7 @@ $('chs').addEventListener('input',e=>{const t=e.target;if(t.dataset.f){chapters[
 $('chs').addEventListener('click',e=>{const a=e.target.dataset.a,i=+e.target.dataset.i;if(!a)return;
 if(a==='rm')chapters.splice(i,1);else{const j=a==='up'?i-1:i+1;if(j<0||j>=chapters.length)return;[chapters[i],chapters[j]]=[chapters[j],chapters[i]]}render();save()});
 document.querySelectorAll('input,select,textarea').forEach(el=>{if(F.includes(el.id))el.addEventListener('input',save)});
-function setCover(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>{cover={url:fr.result,type:f.type};try{localStorage.setItem('bfc',JSON.stringify(cover))}catch(e){}r()};fr.readAsDataURL(f)})}
+function setCover(f){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{cover={url:fr.result,type:f.type};try{localStorage.setItem('bfc',JSON.stringify(cover))}catch(e){status('Cover loaded for this session, but could not be saved. Export your work before leaving this page.')}resolve()};fr.onerror=()=>reject(new Error('Could not read the cover image.'));fr.readAsDataURL(f)})}
 async function ingest(files){const fs=[...files];
 const md=fs.filter(f=>/\.(md|markdown|txt)$/i.test(f.name)).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
 for(const f of md){const t=await f.text(),h=t.match(/^#\s+(.+)$/m);
@@ -483,8 +483,8 @@ $('gGum').onclick=()=>open('https://gumroad.com/products/new','_blank');$('gSel'
 
 /* ========== AI ASSIST (BYOK) ========== */
 const aiStatus = (msg) => { $('aiStatus').textContent = msg; };
-$('aiKey').value = localStorage.getItem('bf_ai_key') || '';
-$('aiKey').onchange = () => localStorage.setItem('bf_ai_key', $('aiKey').value.trim());
+try { const priorKey = sessionStorage.getItem('bf_ai_key') || localStorage.getItem('bf_ai_key') || ''; $('aiKey').value = priorKey; if (priorKey) { sessionStorage.setItem('bf_ai_key', priorKey); localStorage.removeItem('bf_ai_key'); } } catch (e) { aiStatus('Session storage is unavailable; your API key will not be remembered.'); }
+$('aiKey').onchange = () => { try { sessionStorage.setItem('bf_ai_key', $('aiKey').value.trim()); } catch (e) { aiStatus('Could not store the key for this session. You can still paste it before an AI request.'); } };
 
 async function callAI(systemPrompt, userPrompt) {
   const key = $('aiKey').value.trim();
