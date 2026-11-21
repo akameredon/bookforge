@@ -99,7 +99,8 @@ const img=fs.find(f=>/^image\/(png|jpe?g)$/.test(f.type));const coverSaved=img?a
 render();save();status(img&&!coverSaved?'Cover loaded for this session, but could not be saved. Export your work before leaving this page.':`Imported ${md.length} chapter(s)${img?' and a cover':''}.`)}
 const dz=$('drop');['dragenter','dragover'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.add('on')}));
 ['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('on')}));
-dz.addEventListener('drop',e=>ingest(e.dataTransfer.files));$('pick').onclick=()=>$('file').click();$('file').onchange=e=>{ingest(e.target.files);e.target.value=''};
+const handleImport=files=>ingest(files).catch(err=>status('Import failed: '+(err.message||'Unable to read selected files.')));
+dz.addEventListener('drop',e=>handleImport(e.dataTransfer.files));$('pick').onclick=()=>$('file').click();$('file').onchange=e=>{handleImport(e.target.files);e.target.value=''};
 $('add').onclick=()=>{chapters.push({title:'New chapter',md:'# New chapter\n\nWrite here.'});render();save()};
 $('clear').onclick=()=>{if(!confirm('Remove all chapters, cover and details?'))return;chapters=[];cover=null;F.forEach(k=>$(k).value=k==='year'?'2026':k==='trim'?'6x9':k==='theme'?'serif':'');try{localStorage.removeItem('bf');localStorage.removeItem('bfc')}catch(e){}render()};
 $('sample').onclick=()=>{$('title').value='Blood for Rare Earths';$('subtitle').value='Peacekeepers, Proxy Wars, and the Scramble for Critical Minerals';$('author').value='Akadonye Chibuike Macdonald';
