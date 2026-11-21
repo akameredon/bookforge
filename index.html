@@ -172,7 +172,7 @@ $('bPdf').onclick=()=>{
       if (h2s.length) {
         sub = '<ol>' + h2s.map((h2,sIdx)=>`
           <li class="toc-sub">
-            <a href="#ch-${i}-sec-${sIdx+1}"><span class="toc-title">${esc(cleanHeading(h2.textContent))}</span></a>
+            <a href="#ch-${i}-sec-${sIdx+1}"><span class="toc-title">${esc(cleanHeading(h2.textContent))}</span><span class="toc-page" data-page-target="ch-${i}-sec-${sIdx+1}"></span></a>
           </li>`).join('') + '</ol>';
       }
       tocHtml += `
